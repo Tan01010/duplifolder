@@ -1,5 +1,6 @@
 {
   "name": "duplifolder",
+  "author": "Tanner Ordonez",
   "displayName": "duplifolder",
   "description": "",
   "version": "0.0.1",
@@ -22,7 +23,7 @@
         {
           "id": "duplifolder-bar",
           "title": "Duplifolder",
-          "icon": "resources/icon.svg"
+          "icon": "resources/icon.png"
         }
       ]
     },
