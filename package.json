@@ -1,0 +1,66 @@
+{
+  "name": "duplifolder",
+  "displayName": "duplifolder",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:duplifolder.activate",
+    "onCommand:vscode.open",
+    "onCommand:workbench.action.openFolder",
+    "onCommand:workbench.action.closeFolder"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "duplifolder-bar",
+          "title": "Duplifolder",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "duplifolder-bar": [
+        {
+          "id": "emptyTreeView",
+          "name": "Functions"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "emptyTreeView",
+        "contents": "To clone your current folder, click below\n [Backup Folder to Default](command:duplifolder.backupFolderDefault)\n[Backup Folder to ...](command:duplifolder.backupFolderPrompt)",
+        "when": "true"
+      }
+    ]
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint",
+    "test": "node ./test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.1",
+    "@types/node": "16.x",
+    "@types/vscode": "^1.82.0",
+    "@vscode/test-electron": "^2.3.4",
+    "eslint": "^8.47.0",
+    "glob": "^10.3.3",
+    "mocha": "^10.2.0",
+    "typescript": "^5.1.6"
+  },
+  "dependencies": {
+    "fs": "^0.0.1-security",
+    "fs-extra": "^11.1.1",
+    "os": "^0.1.2",
+    "path": "^0.12.7"
+  }
+}
