@@ -1,129 +1,176 @@
+const vscode = require("vscode");
 const fs = require("fs-extra");
 const path = require("path");
-const vscode = require("vscode");
-const os = require('os')
+const os = require("os");
 
-async function duplicateAndBackupFolderDefault() {
-  const workspaceFolders1 = vscode.workspace.workspaceFolders;
-
-  const currentFolder = workspaceFolders1[0].uri.fsPath;
-  console.log(currentFolder);
-  console.log(workspaceFolders1[0].uri);
-
-  const backupFolder = `C:\\Users\\${os.userInfo().username}\\\OneDrive\\Desktop\\Backups`
-  console.log(os.userInfo().username);
-
-  const sourceFolder = currentFolder;
-
-  // Create the backup folder if it doesn't exist
-  if (!fs.existsSync(backupFolder)) {
-    fs.mkdirSync(backupFolder);
-  }
-
-  // Format the folder name to ensure it's valid
-  const date = new Date();
-  const m = date.getMonth() + 1;
-  const h = date.getHours() + 1;
-  const currentFolderName = currentFolder.split("\\").pop();
-  const timestamp = `${date.getFullYear()}${m}${date.getDate()}-${h}.${date.getMinutes()}`;
-  const sanitizedFolderName = currentFolderName.replace(/[\\/:"*?<>|]/g, "_"); // Replace invalid characters
-  const backupFolderName = `${sanitizedFolderName} - ${timestamp}`;
-  console.log(backupFolderName);
-  const backupFolderPath = path.join(backupFolder, backupFolderName);
-  console.log(backupFolderPath);
-
-  try {
-    await fs.copy(sourceFolder, backupFolderPath);
-    vscode.window.showInformationMessage(
-      `Folder backed up to ${backupFolderPath}`
-    );
-  } catch (err) {
-    vscode.window.showErrorMessage(`Error: ${err.message}`);
-  }
-}
-
-async function duplicateAndBackupFolderPrompt() {
-  const workspaceFolders1 = vscode.workspace.workspaceFolders;
-
-  const currentFolder = workspaceFolders1[0].uri.fsPath;
-  console.log(currentFolder);
-  console.log(workspaceFolders1[0].uri);
-
-	let backupFolder;
-  await vscode.window.showInputBox({
-		prompt: 'Backup folder address:',
-		value: `C:\\Users\\${os.userInfo().username}\\OneDrive\\Desktop\\Backups`
-	}).then((input) => {
-		if (fs.pathExists(input) && fs.statSync(input).isDirectory()) {
-			backupFolder = input
-		} else {
-			vscode.window.showErrorMessage("That is not a valid Directory.");
-		}
-	})
-  console.log(os.userInfo().username);
-
-  const sourceFolder = currentFolder;
-
-  // Create the backup folder if it doesn't exist
-  if (!fs.existsSync(backupFolder)) {
-    fs.mkdirSync(backupFolder);
-  }
-
-  // Format the folder name to ensure it's valid
-  const date = new Date();
-  const m = date.getMonth() + 1;
-  const h = date.getHours() + 1;
-  const currentFolderName = currentFolder.split("\\").pop();
-  const timestamp = `${date.getFullYear()}${m}${date.getDate()}-${h}.${date.getMinutes()}`;
-  const sanitizedFolderName = currentFolderName.replace(/[\\/:"*?<>|]/g, "_"); // Replace invalid characters
-  const backupFolderName = `${sanitizedFolderName} - ${timestamp}`;
-  console.log(backupFolderName);
-  const backupFolderPath = path.join(backupFolder, backupFolderName);
-  console.log(backupFolderPath);
-
-  try {
-    await fs.copy(sourceFolder, backupFolderPath);
-    vscode.window.showInformationMessage(
-      `Folder backed up to ${backupFolderPath}`
-    );
-  } catch (err) {
-    vscode.window.showErrorMessage(`Error: ${err.message}`);
-  }
-}
-
-class EmptyTreeViewProvider {
+class BackupTreeDataProvider {
   constructor() {
     this._onDidChangeTreeData = new vscode.EventEmitter();
     this.onDidChangeTreeData = this._onDidChangeTreeData.event;
   }
 
-  getTreeItem(element) {
-    return element;
+  getChildren(element) {
+    if (!element) {
+      return [
+        {
+          label: "Backup to default location",
+          command: "duplifolder.backupFolderDefault",
+        },
+        {
+          label: "Backup to custom location",
+          command: "duplifolder.customLocation",
+        },
+        ...customBackupPaths.map((path, index) => ({
+          label: `Backup to ${path}`,
+          command: `duplifolder.backupFolderCustomPath-${index}`,
+        })),
+      ];
+    }
+    return [];
   }
 
-  getChildren() {
-    // Return an empty array for the root node to create an empty tree view
-    return [];
+  getTreeItem(element) {
+    const treeItem = new vscode.TreeItem(element.label);
+    treeItem.command = { command: element.command, title: element.label };
+    return treeItem;
+  }
+
+  refresh() {
+    this._onDidChangeTreeData.fire();
   }
 }
 
-const emptyTreeViewProvider = new EmptyTreeViewProvider();
+let customBackupPaths = [];
 
-module.exports = {
-  activate(context) {
-    vscode.window.createTreeView("emptyTreeView", {
-      treeDataProvider: emptyTreeViewProvider,
+function getDynamicBackupPath() {
+  const homeDir = os.homedir();
+  if (os.platform() === "win32") {
+    return path.join(homeDir, "OneDrive\\Desktop", "Backups");
+  } else if (os.platform() === "darwin") {
+    return path.join(homeDir, "Documents", "Backups");
+  } else if (os.platform() === "linux") {
+    return path.join(homeDir, "Backups");
+  } else {
+    throw new Error("Unsupported operating system");
+  }
+}
+
+function activate(context) {
+  const { subscriptions } = context;
+  const treeDataProvider = new BackupTreeDataProvider();
+  vscode.window.createTreeView("duplifolder", { treeDataProvider });
+
+  async function setCustomBackupPath() {
+    const customPath = await vscode.window.showInputBox({
+      prompt: "Enter a custom backup path",
+      value: getDynamicBackupPath(),
     });
 
-    let disposable = vscode.commands.registerCommand(
-      "duplifolder.backupFolderDefault",
-      duplicateAndBackupFolderDefault
-    );
-    context.subscriptions.push(disposable);
-		let disposable1 = vscode.commands.registerCommand(
-      "duplifolder.backupFolderPrompt",
-      duplicateAndBackupFolderPrompt
-    );
-    context.subscriptions.push(disposable1);
+    if (customPath && fs.pathExistsSync(customPath)) {
+      customBackupPaths.push(customPath);
+
+      // Dynamically register the new command
+      const index = customBackupPaths.length - 1;
+      const disposable = vscode.commands.registerCommand(
+        `duplifolder.backupFolderCustomPath-${index}`,
+        () => {
+          const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+          if (folderPath) {
+            const destinationPath = path.join(
+              customPath,
+              path.basename(folderPath)
+            );
+            fs.copySync(folderPath, destinationPath);
+            vscode.window.showInformationMessage(
+              `Folder backed up to ${destinationPath}`
+            );
+          } else {
+            vscode.window.showErrorMessage("No folder selected for backup.");
+          }
+        }
+      );
+
+      context.subscriptions.push(disposable);
+
+      vscode.window.showInformationMessage(
+        `Custom backup path set to ${customPath}`
+      );
+
+      const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+      if (folderPath) {
+        const destinationPath = path.join(
+          customPath,
+          path.basename(folderPath)
+        );
+        fs.copySync(folderPath, destinationPath);
+        vscode.window.showInformationMessage(
+          `Folder backed up to custom location: ${destinationPath}`
+        );
+      } else {
+        vscode.window.showErrorMessage("No folder selected for backup.");
+      }
+
+      treeDataProvider.refresh();
+    } else {
+      vscode.window.showErrorMessage("Invalid path. Please try again.");
+    }
   }
+
+  let disposable = vscode.commands.registerCommand(
+    "duplifolder.customLocation",
+    setCustomBackupPath
+  );
+  subscriptions.push(disposable);
+
+  disposable = vscode.commands.registerCommand(
+    "duplifolder.backupFolderDefault",
+    () => {
+      const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+      if (folderPath) {
+        const defaultBackupPath = getDynamicBackupPath();
+        const destinationPath = path.join(
+          defaultBackupPath,
+          path.basename(folderPath)
+        );
+        fs.copySync(folderPath, destinationPath);
+        vscode.window.showInformationMessage(
+          `Folder backed up to default location: ${destinationPath}`
+        );
+      } else {
+        vscode.window.showErrorMessage("No folder selected for backup.");
+      }
+    }
+  );
+  subscriptions.push(disposable);
+
+  customBackupPaths.forEach((customPath, index) => {
+    disposable = vscode.commands.registerCommand(
+      `duplifolder.backupFolderCustomPath-${index}`,
+      () => {
+        const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+        if (folderPath) {
+          const destinationPath = path.join(
+            customPath,
+            path.basename(folderPath)
+          );
+          fs.copySync(folderPath, destinationPath);
+          vscode.window.showInformationMessage(
+            `Folder backed up to ${destinationPath}`
+          );
+        } else {
+          vscode.window.showErrorMessage("No folder selected for backup.");
+        }
+      }
+    );
+    subscriptions.push(disposable);
+  });
+}
+
+function deactivate() {
+  // Clean up if necessary
+}
+
+module.exports = {
+  activate,
+  deactivate,
 };

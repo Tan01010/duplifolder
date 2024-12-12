@@ -1,11 +1,15 @@
 {
   "name": "duplifolder",
-  "author": "Tanner Ordonez",
-  "displayName": "duplifolder",
+  "author": "TannerOrdonez",
+  "publisher": "TannerOrdonez",
+  "displayName": "Duplifolder",
   "description": "",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.82.0"
+  },
+  "icons": {
+    "default": "resources/icon.png"
   },
   "categories": [
     "Other"
@@ -23,25 +27,18 @@
         {
           "id": "duplifolder-bar",
           "title": "Duplifolder",
-          "icon": "resources/icon.png"
+          "icon": "resources/icon1.png"
         }
       ]
     },
     "views": {
       "duplifolder-bar": [
         {
-          "id": "emptyTreeView",
+          "id": "duplifolder",
           "name": "Functions"
         }
       ]
-    },
-    "viewsWelcome": [
-      {
-        "view": "emptyTreeView",
-        "contents": "To clone your current folder, click below\n [Backup Folder to Default](command:duplifolder.backupFolderDefault)\n[Backup Folder to ...](command:duplifolder.backupFolderPrompt)",
-        "when": "true"
-      }
-    ]
+    }
   },
   "scripts": {
     "lint": "eslint .",
@@ -60,7 +57,7 @@
   },
   "dependencies": {
     "fs": "^0.0.1-security",
-    "fs-extra": "^11.1.1",
+    "fs-extra": "^11.2.0",
     "os": "^0.1.2",
     "path": "^0.12.7"
   }
