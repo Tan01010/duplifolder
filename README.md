@@ -45,7 +45,7 @@ You can create multiple named custom locations, and Duplifolder will generate ne
 
 ## ❗ Ignore Files
 
-Add a `.duplifolderignore` file to the root of your workspace to exclude files or folders from backups:
+Add a `.duplifolderignore` file or include a `.gitignore` to the root of your workspace to exclude files or folders from backups:
 
 ```txt
 node_modules
@@ -62,7 +62,6 @@ Your custom locations and backup history are stored in:
 This ensures your configuration persists across sessions.
 
 ## 🚀 Activation
-🚀 Activation
 Duplifolder is activated when:
 
  - Any of its commands are executed
