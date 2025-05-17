@@ -5,73 +5,10 @@ const os = require("os");
 
 const settingsFilePath = path.join(os.homedir(), ".dupset");
 
-class BackupTreeDataProvider {
-  constructor() {
-    this._onDidChangeTreeData = new vscode.EventEmitter();
-    this.onDidChangeTreeData = this._onDidChangeTreeData.event;
-  }
-
-  getChildren(element) {
-    if (!element) {
-      const items = [
-        {
-          label: "Backup to default location",
-          command: "duplifolder.backupFolderDefault",
-        },
-        {
-          label: "Backup to custom location",
-          command: "duplifolder.customLocation",
-        },
-        ...customBackupPaths.map((path, index) => ({
-          label: `Backup to ${path}`,
-          command: `duplifolder.backupFolderCustomPath-${index}`,
-        })),
-        {
-          label: "Delete All Custom Locations",
-          command: "duplifolder.deleteAllCustomLocations",
-          contextValue: "delete",
-        },
-      ];
-      return items;
-    }
-    return [];
-  }
-
-  getTreeItem(element) {
-    const treeItem = new vscode.TreeItem(element.label);
-    treeItem.command = { command: element.command, title: element.label };
-    if (element.contextValue === "delete") {
-      treeItem.iconPath = new vscode.ThemeIcon(
-        "trash",
-        new vscode.ThemeColor("errorForeground")
-      );
-    }
-    treeItem.contextValue = element.contextValue || undefined;
-    return treeItem;
-  }
-
-  refresh() {
-    this._onDidChangeTreeData.fire();
-  }
-}
-
 let customBackupPaths = [];
+let backupHistory = [];
+let customCommandDisposables = []; // <-- track custom commands here
 
-// Load custom paths from the settings file
-function loadCustomBackupPaths() {
-  if (fs.existsSync(settingsFilePath)) {
-    const settings = fs.readJsonSync(settingsFilePath, { throws: false });
-    return settings.customBackupPaths || [];
-  }
-  return [];
-}
-
-// Save custom paths to the settings file
-function saveCustomBackupPaths(paths) {
-  fs.writeJsonSync(settingsFilePath, { customBackupPaths: paths });
-}
-
-// Generate a timestamp in the format MMDDYYYY-HH.MM
 function getTimestamp() {
   const now = new Date();
   const year = now.getFullYear();
@@ -82,179 +19,298 @@ function getTimestamp() {
   return `${month}${day}${year}-${hour}.${minute}`;
 }
 
-// Escape special regex characters in patterns
-function escapeRegex(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-// Filter ignored files and folders based on multiple patterns
-function filterIgnoredFiles(folderPath, ignorePatterns) {
-  return fs
-    .readdirSync(folderPath)
-    .filter((item) => {
-      let isIgnored = false;
-      // Check each ignore pattern
-      ignorePatterns.forEach((pattern) => {
-        const escapedPattern = escapeRegex(pattern).replace(/\\\*/g, ".*");
-        const regex = new RegExp(escapedPattern);
-        if (regex.test(item)) {
-          isIgnored = true;
-        }
-      });
-      return !isIgnored; // Only include non-ignored files
-    });
-}
-
-// Read ignore patterns from .duplifolderignore
 function readIgnorePatterns(folderPath) {
   const ignoreFilePath = path.join(folderPath, ".duplifolderignore");
   if (fs.existsSync(ignoreFilePath)) {
-    // Read file content, split by new lines and remove empty lines
-    const ignorePatterns = fs
+    return fs
       .readFileSync(ignoreFilePath, "utf-8")
       .split("\n")
-      .map(line => line.trim()) // Trim spaces around the patterns
-      .filter(Boolean); // Remove empty lines
-
-    console.log(`Loaded ignore patterns: ${ignorePatterns.join(", ")}`); // Log loaded patterns
-    return ignorePatterns;
+      .map((x) => x.trim())
+      .filter(Boolean);
   }
   return [];
 }
 
-function activate(context) {
-  customBackupPaths = loadCustomBackupPaths();
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
-  const { subscriptions } = context;
-  const treeDataProvider = new BackupTreeDataProvider();
-  vscode.window.createTreeView("duplifolder", { treeDataProvider });
-
-  async function setCustomBackupPath() {
-    const customPath = await vscode.window.showInputBox({
-      prompt: "Enter a custom backup path",
-      value: path.join(os.homedir(), "Backups"),
+function filterIgnoredFiles(folderPath, ignorePatterns) {
+  return fs.readdirSync(folderPath).filter((item) => {
+    const matches = ignorePatterns.some((pattern) => {
+      const regex = new RegExp(escapeRegex(pattern).replace(/\\\*/g, ".*"));
+      return regex.test(item);
     });
+    return !matches;
+  });
+}
 
-    if (customPath && fs.pathExistsSync(customPath)) {
-      customBackupPaths.push(customPath);
-      saveCustomBackupPaths(customBackupPaths);
+// === Loaders and savers ===
 
-      const index = customBackupPaths.length - 1;
-      const disposable = vscode.commands.registerCommand(
-        `duplifolder.backupFolderCustomPath-${index}`,
-        () => {
-          const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-          if (folderPath) {
-            const timestamp = getTimestamp();
-            const ignorePatterns = readIgnorePatterns(folderPath);
-            const itemsToBackup = filterIgnoredFiles(folderPath, ignorePatterns);
-            const destinationPath = path.join(
-              customPath,
-              `${path.basename(folderPath)} - ${timestamp}`
-            );
+function loadCustomBackupPaths() {
+  if (fs.existsSync(settingsFilePath)) {
+    const settings = fs.readJsonSync(settingsFilePath, { throws: false });
+    return settings.customBackupPaths || [];
+  }
+  return [];
+}
 
-            itemsToBackup.forEach((item) => {
-              fs.copySync(
-                path.join(folderPath, item),
-                path.join(destinationPath, item)
-              );
-            });
-            vscode.window.showInformationMessage(
-              `Folder backed up to ${destinationPath}`
-            );
-          } else {
-            vscode.window.showErrorMessage("No folder selected for backup.");
-          }
-        }
-      );
-      subscriptions.push(disposable);
+function saveCustomBackupPaths(paths) {
+  const settings = fs.existsSync(settingsFilePath)
+    ? fs.readJsonSync(settingsFilePath, { throws: false })
+    : {};
+  settings.customBackupPaths = paths;
+  fs.writeJsonSync(settingsFilePath, settings);
+}
 
-      treeDataProvider.refresh();
-    } else {
-      vscode.window.showErrorMessage("Invalid path. Please try again.");
-    }
+function loadBackupHistory() {
+  if (fs.existsSync(settingsFilePath)) {
+    const settings = fs.readJsonSync(settingsFilePath, { throws: false });
+    return settings.backupHistory || [];
+  }
+  return [];
+}
+
+function saveBackupHistory(history) {
+  const settings = fs.existsSync(settingsFilePath)
+    ? fs.readJsonSync(settingsFilePath, { throws: false })
+    : {};
+  settings.backupHistory = history;
+  fs.writeJsonSync(settingsFilePath, settings);
+}
+
+// === Tree Providers ===
+
+class OptionsProvider {
+  constructor() {
+    this._onDidChangeTreeData = new vscode.EventEmitter();
+    this.onDidChangeTreeData = this._onDidChangeTreeData.event;
   }
 
-  let disposable = vscode.commands.registerCommand(
-    "duplifolder.customLocation",
-    setCustomBackupPath
-  );
-  subscriptions.push(disposable);
+  refresh() {
+    this._onDidChangeTreeData.fire();
+  }
 
-  disposable = vscode.commands.registerCommand(
-    "duplifolder.backupFolderDefault",
-    () => {
-      const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-      if (folderPath) {
-        const defaultBackupPath = path.join(os.homedir(), "Desktop", "Backups");
-        const timestamp = getTimestamp();
-        const ignorePatterns = readIgnorePatterns(folderPath);
-        const itemsToBackup = filterIgnoredFiles(folderPath, ignorePatterns);
-        const destinationPath = path.join(
-          defaultBackupPath,
-          `${path.basename(folderPath)} - ${timestamp}`
-        );
+  getTreeItem(element) {
+    const item = new vscode.TreeItem(
+      element.label,
+      vscode.TreeItemCollapsibleState.None
+    );
+    if (element.command) {
+      item.command = { command: element.command, title: element.label };
+    }
+    item.contextValue = element.contextValue;
+    if (element.iconPath) {
+      item.iconPath = element.iconPath;
+    }
+    return item;
+  }
 
-        itemsToBackup.forEach((item) => {
-          fs.copySync(
-            path.join(folderPath, item),
-            path.join(destinationPath, item)
-          );
+  getChildren() {
+    const children = [
+      {
+        label: "Backup to default location",
+        command: "duplifolder.backupFolderDefault",
+      },
+      {
+        label: "Backup to custom location",
+        command: "duplifolder.customLocation",
+      },
+      ...customBackupPaths.map(({ name, path }, index) => ({
+        label: `Backup to ${name} (${path})`,
+        command: `duplifolder.backupFolderCustomPath-${index}`,
+      })),
+    ];
+
+    if (customBackupPaths.length > 0) {
+      children.push({
+        label: "Delete All Custom Locations",
+        command: "duplifolder.deleteAllCustomLocations",
+        contextValue: "delete",
+        iconPath: new vscode.ThemeIcon("trash"),
+      });
+    }
+
+    return children;
+  }
+}
+
+class HistoryProvider {
+  constructor() {
+    this._onDidChangeTreeData = new vscode.EventEmitter();
+    this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+  }
+
+  refresh() {
+    this._onDidChangeTreeData.fire();
+  }
+
+  getTreeItem(element) {
+    return new vscode.TreeItem(
+      element.label,
+      vscode.TreeItemCollapsibleState.None
+    );
+  }
+
+  getChildren() {
+    return backupHistory.map((entry) => ({
+      label: `${entry.timestamp} → ${entry.destination}`,
+    }));
+  }
+}
+
+// === Backup Function ===
+
+async function backup(folderPath, destinationPath) {
+  const timestamp = getTimestamp();
+  const ignorePatterns = readIgnorePatterns(folderPath);
+  const itemsToBackup = filterIgnoredFiles(folderPath, ignorePatterns);
+
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: `Backing up to ${destinationPath}`,
+      cancellable: false,
+    },
+    async (progress) => {
+      progress.report({ increment: 0 });
+
+      const totalItems = itemsToBackup.length;
+      console.log(`Total items to backup: ${totalItems}`);
+      for (let i = 0; i < totalItems; i++) {
+        const item = itemsToBackup[i];
+        const src = path.join(folderPath, item);
+        const dest = path.join(destinationPath, item);
+
+        fs.copySync(src, dest);
+
+        progress.report({
+          message: `Copying ${item}...`,
+          increment: 100 / totalItems,
         });
-        vscode.window.showInformationMessage(
-          `Folder backed up to default location: ${destinationPath}`
-        );
-      } else {
-        vscode.window.showErrorMessage("No folder selected for backup.");
       }
+
+      backupHistory.unshift({ timestamp, destination: destinationPath });
+      if (backupHistory.length > 20) backupHistory = backupHistory.slice(0, 20);
+      saveBackupHistory(backupHistory);
     }
   );
-  subscriptions.push(disposable);
+}
 
-  customBackupPaths.forEach((customPath, index) => {
-    const command = `duplifolder.backupFolderCustomPath-${index}`;
-    const disposable = vscode.commands.registerCommand(command, () => {
-      const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-      if (folderPath) {
-        const timestamp = getTimestamp();
-        const ignorePatterns = readIgnorePatterns(folderPath);
-        const itemsToBackup = filterIgnoredFiles(folderPath, ignorePatterns);
-        const destinationPath = path.join(
-          customPath,
-          `${path.basename(folderPath)} - ${timestamp}`
-        );
 
-        itemsToBackup.forEach((item) => {
-          fs.copySync(
-            path.join(folderPath, item),
-            path.join(destinationPath, item)
-          );
-        });
-        vscode.window.showInformationMessage(
-          `Folder backed up to ${destinationPath}`
-        );
-      } else {
-        vscode.window.showErrorMessage("No folder selected for backup.");
-      }
-    });
-    subscriptions.push(disposable);
+// === Activate ===
+
+function activate(context) {
+  customBackupPaths = loadCustomBackupPaths();
+  backupHistory = loadBackupHistory();
+
+  const optionsProvider = new OptionsProvider();
+  const historyProvider = new HistoryProvider();
+
+  vscode.window.createTreeView("backupsection", {
+    treeDataProvider: optionsProvider,
+  });
+  vscode.window.createTreeView("backuphistory", {
+    treeDataProvider: historyProvider,
   });
 
+  const handleCustomBackup = async (customPath) => {
+    const folderPath =
+      vscode.workspace.workspaceFolders &&
+      vscode.workspace.workspaceFolders.length > 0
+        ? vscode.workspace.workspaceFolders[0].uri.fsPath
+        : null;
+    if (folderPath && fs.existsSync(customPath)) {
+      const timestamp = getTimestamp();
+      const destination = path.join(
+        customPath,
+        `${path.basename(folderPath)} - ${timestamp}`
+      );
+      await backup(folderPath, destination);
+      vscode.window.showInformationMessage(`Backed up to ${destination}`);
+      historyProvider.refresh();
+    }
+  };
+
+  // Clear previous custom command disposables and unregister them
+  function clearCustomCommands() {
+    customCommandDisposables.forEach((disposable) => disposable.dispose());
+    customCommandDisposables = [];
+  }
+
+  const registerCustomCommands = () => {
+    clearCustomCommands();
+    customBackupPaths.forEach(({ path: customPath }, index) => {
+      const cmd = `duplifolder.backupFolderCustomPath-${index}`;
+      const disposable = vscode.commands.registerCommand(cmd, () =>
+        handleCustomBackup(customPath)
+      );
+      customCommandDisposables.push(disposable);
+      context.subscriptions.push(disposable);
+    });
+  };
+
   context.subscriptions.push(
+    vscode.commands.registerCommand("duplifolder.customLocation", async () => {
+      const customPath = await vscode.window.showInputBox({
+        prompt: "Enter a custom backup path",
+        value: path.join(os.homedir(), "Backups"),
+      });
+
+      if (customPath && fs.existsSync(customPath)) {
+        // Ask for a name too
+        const name = await vscode.window.showInputBox({
+          prompt: "Enter a name for this backup location",
+          value: path.basename(customPath),
+        });
+        if (!name) {
+          return vscode.window.showErrorMessage("Backup location name is required.");
+        }
+
+        customBackupPaths.push({ name, path: customPath });
+        saveCustomBackupPaths(customBackupPaths);
+        registerCustomCommands();
+        optionsProvider.refresh();
+      } else {
+        vscode.window.showErrorMessage("Invalid path.");
+      }
+    }),
+
+    vscode.commands.registerCommand("duplifolder.backupFolderDefault", () => {
+      const folderPath =
+        vscode.workspace.workspaceFolders &&
+        vscode.workspace.workspaceFolders.length > 0
+          ? vscode.workspace.workspaceFolders[0].uri.fsPath
+          : null;
+
+      if (!folderPath)
+        return vscode.window.showErrorMessage("No folder selected.");
+      const defaultPath = path.join(os.homedir(), "Desktop", "Backups");
+      const timestamp = getTimestamp();
+      const destination = path.join(
+        defaultPath,
+        `${path.basename(folderPath)} - ${timestamp}`
+      );
+      backup(folderPath, destination);
+      vscode.window.showInformationMessage(
+        `Folder backed up to ${destination}`
+      );
+      historyProvider.refresh();
+    }),
+
     vscode.commands.registerCommand(
       "duplifolder.deleteAllCustomLocations",
       () => {
         customBackupPaths = [];
-        saveCustomBackupPaths(customBackupPaths);
-        treeDataProvider.refresh();
-        vscode.window.showInformationMessage(
-          "All custom backup locations deleted."
-        );
+        saveCustomBackupPaths([]);
+        clearCustomCommands();
+        optionsProvider.refresh();
+        vscode.window.showInformationMessage("All custom locations deleted.");
       }
     )
   );
 
-  treeDataProvider.refresh();
+  registerCustomCommands();
 }
 
 function deactivate() {}

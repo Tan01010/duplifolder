@@ -4,7 +4,7 @@
   "publisher": "TannerOrdonez",
   "displayName": "Duplifolder",
   "description": "",
-  "version": "2.1.0",
+  "version": "4.0.0",
   "engines": {
     "vscode": "^1.82.0"
   },
@@ -34,8 +34,14 @@
     "views": {
       "duplifolder-bar": [
         {
-          "id": "duplifolder",
-          "name": "Functions"
+          "icon": "resources/icon1.png",
+          "id": "backupsection",
+          "name": "Options"
+        },
+        {
+          "icon": "resources/icon1.png",
+          "id": "backuphistory",
+          "name": "History"
         }
       ]
     }

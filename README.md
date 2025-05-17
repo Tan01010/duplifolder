@@ -1,128 +1,75 @@
-# Duplifolder VS Code Extension
+# 📁 Duplifolder – VS Code Backup Utility
 
-`Duplifolder` is a Visual Studio Code extension that helps you easily back up your projects to default or custom locations, while allowing you to ignore specific files or folders during the backup process.
+Duplifolder is a Visual Studio Code extension that lets you quickly back up your current workspace folder to a custom or default location. It's perfect for developers who want to snapshot their code regularly with named destinations, history tracking, and a user-friendly sidebar interface.
 
-### Features:
-- Backup your folder to a default location or any custom location of your choice.
-- Ignore specific files or folders during the backup process using `.duplifolderignore`.
-- Easily manage custom backup paths.
+## ✨ Features
 
-### How It Works:
-1. **Backup to Default Location**: Backup your folder to the default location (`Desktop/Backups`) with a timestamp.
-2. **Custom Backup Locations**: Add and manage custom backup locations. You can add multiple custom paths, and each can be used to backup your project.
-3. **Ignore Files/Folders**: Use the `.duplifolderignore` file in your project folder to specify which files or folders should be ignored during the backup process.
+- 📂 **Backup Current Workspace Folder**
+- 🖱️ One-click backup to:
+  - Default location (`~/Desktop/Backups`)
+  - Custom locations with optional naming
+- 📝 **View backup history** in a dedicated sidebar panel
+- ❌ **Delete all saved custom paths**
+- 🔄 **Persistent settings** via a file (`~/.dupset`)
+- 🚫 **Ignore file support** with `.duplifolderignore`
+- 📊 **Progress bar** shows real-time backup progress
 
----
+## 🧩 Sidebar Views
 
-## Installation
+### 🔧 Options Panel
+Accessible from the Activity Bar, it includes:
+- **Backup to default location**
+- **Backup to custom location**
+- **Named custom backup links**
+- **Delete all custom locations**
 
-1. Open Visual Studio Code.
-2. Go to the Extensions view by clicking on the Extensions icon in the Activity Bar on the side of the window.
-3. Search for `Duplifolder` and click **Install**.
+### 📜 History Panel
+Displays your last 20 backups:
+- Timestamps
+- Destination paths
 
----
+## 📁 Custom Backup Locations with Naming
 
-## Configuration
+When choosing a custom backup folder, you'll be prompted to enter:
+1. The **path** of the location (must already exist)
+2. An optional **name** for the link (to appear in the UI)
 
-### `.duplifolderignore` file
+You can create multiple named custom locations, and Duplifolder will generate new backup commands for each.
 
-You can create a `.duplifolderignore` file in the root of your project to specify files and folders you want to ignore during the backup process. Each pattern you want to ignore should be written on a new line.
+## 🔄 How Backups Work
 
-#### How to use `.duplifolderignore`:
+- Files are copied **excluding ignored patterns** from `.duplifolderignore`.
+- The backup folder is named like:  
+  `YourFolderName - MMDDYYYY-HH.MM`
+- Progress is shown in a notification as files are copied.
 
-- **Ignore all files with a specific extension**:
-  - To ignore all `.html` files, simply add `.html` on a new line in the `.duplifolderignore` file:
-    ```text
-    .html
-    ```
+## ❗ Ignore Files
 
-- **Ignore a specific folder**:
-  - To ignore an entire folder, just type the name of the folder:
-    ```text
-    folder_name
-    ```
+Add a `.duplifolderignore` file to the root of your workspace to exclude files or folders from backups:
 
-- **Ignore a specific file**:
-  - To ignore a specific file, simply type the file's name:
-    ```text
-    file_name.ext
-    ```
-
-- **Multiple Patterns**:
-  - You can add multiple ignore patterns, one per line. For example:
-    ```text
-    .html
-    folder_name
-    file_to_ignore.txt
-    ```
-
----
-
-## Usage
-
-### Commands:
-
-- **Backup to Default Location**: 
-  - This will back up your folder to the default location (usually `Desktop/Backups`), with a timestamp.
-  - Command: `Duplifolder: Backup to Default Location`
-
-- **Backup to Custom Location**: 
-  - You can add custom locations where you'd like to store your backups.
-  - Command: `Duplifolder: Backup to Custom Location`
-
-- **Manage Custom Backup Locations**:
-  - You can add, edit, or remove custom backup paths from the settings. You can have multiple custom locations.
-  - Command: `Duplifolder: Manage Custom Backup Locations`
-
-- **Delete All Custom Locations**: 
-  - This will remove all custom backup locations.
-  - Command: `Duplifolder: Delete All Custom Locations`
-
----
-
-## Example `.duplifolderignore` file:
-
-```text
-# Ignore all .html files
-.html
-
-# Ignore the "dist" folder
-dist
-
-# Ignore a specific file "example.txt"
-example.txt
-
-# Ignore the "node_modules" folder
+```txt
 node_modules
-
+.env
+*.log
 ```
-This file tells the extension to ignore:
+Wildcards (*) are supported.
 
--   All `.html` files,
--   The `dist` folder,
--   The specific file `example.txt`,
--   The `node_modules` folder.
+## 🧠 Settings Storage
+Your custom locations and backup history are stored in:
+```txt
+~/.dupset
+```
+This ensures your configuration persists across sessions.
 
-* * * * *
+## 🚀 Activation
+🚀 Activation
+Duplifolder is activated when:
 
-Feedback
---------
+ - Any of its commands are executed
 
-We'd love to hear from you! If you have any questions, suggestions, or feedback, feel free to ask or leave a review.
+ - VS Code is opened or a folder is opened
 
--   **Ask Questions**: If you encounter any issues or need help with using the extension, please open a question on the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/).
--   **Leave a Review**: If you like the extension, consider leaving a review to help others find it. Your feedback is important to us!
+## 🧑‍💻 Author
+**Tanner Ordonez**
 
-* * * * *
-
-Credits
--------
-
-This extension is built with the help of various modules, including the `fs-extra` library for file system operations, and the `path` module to handle file paths.
-
-* * * * *
-
-License
--------
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+Made with ❤️ *for developers* who want peace of mind through instant backups.
