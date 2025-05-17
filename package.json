@@ -5,7 +5,7 @@
   "displayName": "Duplifolder",
   "description": "",
   "version": "4.1.0",
-  "icon": "resources/icon1.png",
+  "icon": "resources/cover.png",
   "engines": {
     "vscode": "^1.82.0"
   },
