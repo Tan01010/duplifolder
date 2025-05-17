@@ -9,3 +9,5 @@
 **v3** ~ *3rd Release* adding .duplifolderignore functionality
 
 **v4** ~ *4th Release*!!! Added History, Naming of custom locations, and Progress Bar on Notification
+
+**v4.1** ~ *4th Release* with icon

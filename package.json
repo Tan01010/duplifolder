@@ -4,12 +4,13 @@
   "publisher": "TannerOrdonez",
   "displayName": "Duplifolder",
   "description": "",
-  "version": "4.0.0",
+  "version": "4.1.0",
+  "icon": "resources/icon1.png",
   "engines": {
     "vscode": "^1.82.0"
   },
   "icons": {
-    "default": "resources/icon.png"
+    "default": "resources/icon1.png"
   },
   "categories": [
     "Other"
