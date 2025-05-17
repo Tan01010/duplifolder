@@ -14,4 +14,4 @@
 
 **v4.2** ~ *4th Release* with ***better icon***
 
-**v4.3** ~ *4th Release* with .gitignore functionality
+**v4.3** ~ *4th Release* with .gitignore functionality and... even better icon

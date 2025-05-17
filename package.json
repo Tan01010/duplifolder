@@ -4,7 +4,7 @@
   "publisher": "TannerOrdonez",
   "displayName": "Duplifolder",
   "description": "",
-  "version": "4.2.0",
+  "version": "4.3.0",
   "icon": "resources/cover.png",
   "engines": {
     "vscode": "^1.82.0"
